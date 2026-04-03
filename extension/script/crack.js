@@ -1,8 +1,8 @@
 (function() {
     const DEBUG = true;
-    if (DEBUG) console.log("--- PIXEL-HITTER INSOMNIA: V6 STABLE ---");
+    if (DEBUG) console.log("--- PIXEL-HITTER GHOST MODE: V7 STABLE ---");
 
-    function findAnywhere(selector, text = null) {
+    function findEverywhere(selector, text = null) {
         let found = [];
         function scan(root) {
             if (!root) return;
@@ -24,81 +24,101 @@
         return found;
     }
 
-    const forceAction = (el) => {
-        if (!el) return;
-        ['mousedown', 'click', 'mouseup'].forEach(evtType => {
-            const ev = new MouseEvent(evtType, { view: window, bubbles: true, cancelable: true });
-            el.dispatchEvent(ev);
+    const ghostCleanup = () => {
+        // ১. প্রোটেক্টেড আইডি (এগুলো কখনো লুকানো হবে না)
+        const vipIds = ['pixelMenu', 'app', 'binArea', 'quickBinInput', 'quickBinUseBtn', 'bin-tab', 'logs'];
+        
+        // ২. লগইন ওভারলে খোঁজা
+        const suspects = findEverywhere('div', 'Enter Your License Code')
+            .concat(findInShadowRoots('#loginWrap'))
+            .concat(findEverywhere('div', 'Login with Telegram'));
+
+        suspects.forEach(el => {
+            // যদি এলিমেন্টটি ভিআইপি অংশ না হয়
+            let isVip = vipIds.some(id => el.id === id || el.querySelector('#' + id));
+            if (!isVip && el.id !== 'app') {
+                // উধাও না করে দূরে পাঠিয়ে দেওয়া (Ghost Mode)
+                el.style.setProperty('position', 'fixed', 'important');
+                el.style.setProperty('left', '-10000px', 'important');
+                el.style.setProperty('opacity', '0', 'important');
+                el.style.setProperty('pointer-events', 'none', 'important');
+            }
         });
-        if (el.click) el.click();
+
+        // ৩. অ্যাপ এবং মেনু বোতামকে জোর করে ফিরিয়ে আনা
+        const app = document.getElementById('app') || findEverywhere('#app')[0];
+        if (app) {
+            app.style.setProperty('display', 'block', 'important');
+            app.style.setProperty('visibility', 'visible', 'important');
+            app.style.setProperty('position', 'fixed', 'important');
+            app.style.setProperty('left', 'auto', 'important');
+            app.style.setProperty('opacity', '1', 'important');
+            app.style.setProperty('z-index', '2147483647', 'important');
+        }
+
+        const menu = document.getElementById('pixelMenu') || findEverywhere('div', 'Pixel Menu')[0];
+        if (menu) {
+            menu.style.setProperty('display', 'flex', 'important');
+            menu.style.setProperty('visibility', 'visible', 'important');
+            menu.style.setProperty('position', 'fixed', 'important');
+            menu.style.setProperty('left', 'auto', 'important');
+            menu.style.setProperty('bottom', '20px', 'important');
+            menu.style.setProperty('outline', '2px solid red', 'important');
+        }
     };
 
-    const mainLoop = () => {
+    function findInShadowRoots(selector) {
+        let found = [];
+        function scan(root) {
+            if (!root) return;
+            if (root.querySelector && root.querySelector(selector)) found.push(root.querySelector(selector));
+            const all = root.querySelectorAll ? root.querySelectorAll('*') : [];
+            all.forEach(el => { if (el.shadowRoot) scan(el.shadowRoot); });
+        }
+        scan(document);
+        return found;
+    }
+
+    const autoStartTask = () => {
         if (typeof chrome === 'undefined' || !chrome.storage) return;
 
         chrome.storage.local.get(['currentTask'], (res) => {
             if (!res.currentTask || !res.currentTask.bin) return;
             const task = res.currentTask;
 
-            // ১. মেনু এক্টিভেশন চেক
-            const menu = document.getElementById('pixelMenu') || findAnywhere('div', 'Pixel Menu')[0] || findAnywhere('button', 'Pixel Menu')[0];
-            const app = document.getElementById('app') || findAnywhere('#app')[0];
+            const menu = document.getElementById('pixelMenu') || findEverywhere('div', 'Pixel Menu')[0];
+            const app = document.getElementById('app') || findEverywhere('#app')[0];
 
-            if (menu) {
-                // ভিজ্যুয়াল ফিডব্যাক (বোট কাজ করলে লাল বর্ডার হবে)
-                menu.style.setProperty('outline', '2px solid red', 'important');
-                
-                if (!app || app.style.display === 'none' || app.offsetParent === null) {
-                    console.log("[Insomnia] Awakening the sleeper...");
-                    forceAction(menu);
-                }
+            // মেনু না থাকলে ক্লিক করুন
+            if (menu && (!app || app.offsetParent === null)) {
+               ['mousedown', 'click', 'mouseup'].forEach(t => menu.dispatchEvent(new MouseEvent(t, {bubbles:true})));
+               menu.click();
             }
 
-            // ২. লগইন ওভারলে কিল করা
-            const overlays = findAnywhere('div', 'Enter Your License Code')
-                .concat(findAnywhere('div', 'Login with Telegram'))
-                .concat(findAnywhere('#loginWrap'));
+            const binInp = document.getElementById('quickBinInput') || findEverywhere('input[placeholder*="BIN"]')[0];
+            const startBtn = document.getElementById('quickBinUseBtn') || findEverywhere('button', 'Start')[0];
 
-            overlays.forEach(el => {
-                if (el.id !== 'app' && !el.contains(document.getElementById('bin-tab'))) {
-                    el.style.setProperty('display', 'none', 'important');
-                    el.style.setProperty('z-index', '-1', 'important');
-                }
-            });
-
-            // ৩. অটো-ফিল এবং স্টার্ট
-            if (window.location.host.includes("stripe.com") || window.location.host.includes("checkout")) {
-                const binInp = document.getElementById('quickBinInput') || findAnywhere('input[placeholder*="BIN"]')[0];
-                const limitInp = document.getElementById('quickLimitInput') || findAnywhere('input[id*="Limit"]')[0];
-                const startBtn = document.getElementById('quickBinUseBtn') || findAnywhere('button', 'Start')[0];
-
-                if (binInp && startBtn && !window.isBotExecuting) {
-                    // ফিলিং
-                    binInp.value = task.bin;
-                    binInp.dispatchEvent(new Event('input', { bubbles: true }));
-                    
-                    if (limitInp) {
-                        limitInp.value = task.limit || 10;
-                        limitInp.dispatchEvent(new Event('input', { bubbles: true }));
-                    }
-
-                    // টাইমড স্টার্ট
-                    window.isBotExecuting = true;
-                    setTimeout(() => {
-                        console.log("[Insomnia] Triggering Start Sequence...");
-                        forceAction(startBtn);
-                        
-                        chrome.runtime.sendMessage({ 
-                            type: "REPORT_LIVE", 
-                            data: { status: "HITTING", bin: task.bin, msg: "Bypassed and started 10-hit sequence." } 
-                        });
-                    }, 1200);
-                }
+            if (binInp && startBtn && !window.isBotRunning) {
+                binInp.value = task.bin;
+                binInp.dispatchEvent(new Event('input', { bubbles: true }));
+                
+                window.isBotRunning = true;
+                setTimeout(() => {
+                    console.log("[Ghost] Starting Process...");
+                    ['mousedown', 'click', 'mouseup'].forEach(t => startBtn.dispatchEvent(new MouseEvent(t, {bubbles:true})));
+                    startBtn.click();
+                    chrome.runtime.sendMessage({ type: "REPORT_LIVE", data: { status: "ACTIVE", bin: task.bin, msg: "Automation running in Ghost Mode (Bypassed)." } });
+                }, 1200);
             }
         });
     };
 
     // প্রতি ১.৫ সেকেন্ডে বোট চেক
-    setInterval(mainLoop, 1500);
+    setInterval(() => {
+        ghostCleanup();
+        if (window.location.host.includes("stripe") || window.location.host.includes("checkout")) {
+            autoStartTask();
+        }
+    }, 1500);
 
 })();
