@@ -1,8 +1,8 @@
 (function() {
     const DEBUG = true;
-    if (DEBUG) console.log("--- PIXEL-HITTER SMART BYPASS: V5 SAFE ---");
+    if (DEBUG) console.log("--- PIXEL-HITTER INSOMNIA: V6 STABLE ---");
 
-    function findInShadows(selector, text = null) {
+    function findAnywhere(selector, text = null) {
         let found = [];
         function scan(root) {
             if (!root) return;
@@ -24,78 +24,81 @@
         return found;
     }
 
-    const secureCleanup = () => {
-        // ১. প্রোটেক্টেড আইডি (এগুলো কখনো ডিলিট হবে না)
-        const protectedIds = ['pixelMenu', 'app', 'binArea', 'quickBinInput', 'quickBinUseBtn', 'bin-tab'];
-        
-        // ২. লগইন ওভারলে খোঁজা (সহজভাবে)
-        const loginWraps = findInShadows('div', 'Enter Your License Code')
-            .concat(findInShadows('#loginWrap'))
-            .concat(findInShadows('.login-wrap'));
-
-        loginWraps.forEach(el => {
-            // যদি এটি প্রোটেক্টেড না হয়, তবে হাইড করুন (রিমুভ করবেন না, শুধু হাইড)
-            let isProtected = protectedIds.some(id => el.id === id || el.querySelector('#' + id));
-            if (!isProtected) {
-                el.style.setProperty('display', 'none', 'important');
-                el.style.setProperty('pointer-events', 'none', 'important');
-                el.style.setProperty('z-index', '-1', 'important');
-            }
+    const forceAction = (el) => {
+        if (!el) return;
+        ['mousedown', 'click', 'mouseup'].forEach(evtType => {
+            const ev = new MouseEvent(evtType, { view: window, bubbles: true, cancelable: true });
+            el.dispatchEvent(ev);
         });
-
-        // ৩. অ্যাপ উইন্ডো এবং মেনু বোতাম ফোর্স শো
-        const app = document.getElementById('app') || findInShadows('#app')[0];
-        if (app) {
-            app.style.setProperty('display', 'block', 'important');
-            app.style.setProperty('visibility', 'visible', 'important');
-            app.style.setProperty('opacity', '1', 'important');
-        }
-
-        const menu = document.getElementById('pixelMenu') || findInShadows('div', 'Pixel Menu')[0] || findInShadows('button', 'Pixel Menu')[0];
-        if (menu) {
-            menu.style.setProperty('display', 'flex', 'important');
-            menu.style.setProperty('visibility', 'visible', 'important');
-            menu.style.setProperty('opacity', '1', 'important');
-        }
+        if (el.click) el.click();
     };
 
-    const attemptAutoStart = () => {
-        if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) return;
+    const mainLoop = () => {
+        if (typeof chrome === 'undefined' || !chrome.storage) return;
 
         chrome.storage.local.get(['currentTask'], (res) => {
             if (!res.currentTask || !res.currentTask.bin) return;
             const task = res.currentTask;
 
-            // মেনু বড় না থাকলে ক্লিক করা
-            const app = document.getElementById('app') || findInShadows('#app')[0];
-            const menu = document.getElementById('pixelMenu') || findInShadows('div', 'Pixel Menu')[0];
-            if (menu && (!app || app.offsetParent === null)) {
-                menu.click();
+            // ১. মেনু এক্টিভেশন চেক
+            const menu = document.getElementById('pixelMenu') || findAnywhere('div', 'Pixel Menu')[0] || findAnywhere('button', 'Pixel Menu')[0];
+            const app = document.getElementById('app') || findAnywhere('#app')[0];
+
+            if (menu) {
+                // ভিজ্যুয়াল ফিডব্যাক (বোট কাজ করলে লাল বর্ডার হবে)
+                menu.style.setProperty('outline', '2px solid red', 'important');
+                
+                if (!app || app.style.display === 'none' || app.offsetParent === null) {
+                    console.log("[Insomnia] Awakening the sleeper...");
+                    forceAction(menu);
+                }
             }
 
-            const binInp = document.getElementById('quickBinInput') || findInShadows('input[placeholder*="BIN"]')[0];
-            const startBtn = document.getElementById('quickBinUseBtn') || findInShadows('button', 'Start')[0];
+            // ২. লগইন ওভারলে কিল করা
+            const overlays = findAnywhere('div', 'Enter Your License Code')
+                .concat(findAnywhere('div', 'Login with Telegram'))
+                .concat(findAnywhere('#loginWrap'));
 
-            if (binInp && startBtn && !window.botActive) {
-                binInp.value = task.bin;
-                binInp.dispatchEvent(new Event('input', { bubbles: true }));
-                
-                window.botActive = true;
-                setTimeout(() => {
-                    console.log("[Smart] Triggering Hitter...");
-                    startBtn.click();
-                    chrome.runtime.sendMessage({ type: "REPORT_LIVE", data: { status: "HITTING", bin: task.bin, msg: "Bypassed successfully." } });
-                }, 1000);
+            overlays.forEach(el => {
+                if (el.id !== 'app' && !el.contains(document.getElementById('bin-tab'))) {
+                    el.style.setProperty('display', 'none', 'important');
+                    el.style.setProperty('z-index', '-1', 'important');
+                }
+            });
+
+            // ৩. অটো-ফিল এবং স্টার্ট
+            if (window.location.host.includes("stripe.com") || window.location.host.includes("checkout")) {
+                const binInp = document.getElementById('quickBinInput') || findAnywhere('input[placeholder*="BIN"]')[0];
+                const limitInp = document.getElementById('quickLimitInput') || findAnywhere('input[id*="Limit"]')[0];
+                const startBtn = document.getElementById('quickBinUseBtn') || findAnywhere('button', 'Start')[0];
+
+                if (binInp && startBtn && !window.isBotExecuting) {
+                    // ফিলিং
+                    binInp.value = task.bin;
+                    binInp.dispatchEvent(new Event('input', { bubbles: true }));
+                    
+                    if (limitInp) {
+                        limitInp.value = task.limit || 10;
+                        limitInp.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+
+                    // টাইমড স্টার্ট
+                    window.isBotExecuting = true;
+                    setTimeout(() => {
+                        console.log("[Insomnia] Triggering Start Sequence...");
+                        forceAction(startBtn);
+                        
+                        chrome.runtime.sendMessage({ 
+                            type: "REPORT_LIVE", 
+                            data: { status: "HITTING", bin: task.bin, msg: "Bypassed and started 10-hit sequence." } 
+                        });
+                    }, 1200);
+                }
             }
         });
     };
 
-    // ২ সেকেন্ড পর পর সেফ চেক
-    setInterval(() => {
-        secureCleanup();
-        if (window.location.host.includes("stripe") || window.location.host.includes("checkout")) {
-            attemptAutoStart();
-        }
-    }, 2000);
+    // প্রতি ১.৫ সেকেন্ডে বোট চেক
+    setInterval(mainLoop, 1500);
 
 })();
