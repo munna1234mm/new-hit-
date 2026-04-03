@@ -1,0 +1,3 @@
+
+// --- COMMS BRIDGE ---
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => { const SERVER_URL = 'http://localhost:5000'; if (request.type === 'FETCH_TASK') { fetch(SERVER_URL + '/get_task').then(r => r.json()).then(data => sendResponse(data)).catch(err => sendResponse({error: err.message})); return true; } if (request.type === 'REPORT_LIVE') { fetch(SERVER_URL + '/report_live', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(request.data) }).then(r => r.json()).then(d => sendResponse(d)).catch(e => sendResponse({error: e})); return true; } if (request.type === 'OPEN_URL') { chrome.tabs.create({ url: request.url }); return true; } });
