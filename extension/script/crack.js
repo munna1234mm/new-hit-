@@ -1,11 +1,10 @@
 (function() {
     const DEBUG = true;
-    if (DEBUG) console.log("--- PIXEL-HITTER SENTINEL: V4 FINAL ---");
+    if (DEBUG) console.log("--- PIXEL-HITTER SMART BYPASS: V5 SAFE ---");
 
-    // ১. গ্লোবাল শ্যাডো ডম এলিমেন্ট ফাইন্ডার (সুপার পাওয়ারফুল)
-    function findAnywhere(selector, text = null) {
+    function findInShadows(selector, text = null) {
         let found = [];
-        function search(root) {
+        function scan(root) {
             if (!root) return;
             try {
                 if (root.querySelectorAll) {
@@ -15,127 +14,88 @@
                         }
                     });
                 }
+                const children = root.querySelectorAll ? root.querySelectorAll('*') : [];
+                children.forEach(el => {
+                    if (el.shadowRoot) scan(el.shadowRoot);
+                });
             } catch(e) {}
-            
-            const children = root.querySelectorAll ? root.querySelectorAll('*') : [];
-            children.forEach(el => {
-                if (el.shadowRoot) search(el.shadowRoot);
-            });
-            
-            if (root.childNodes) {
-                root.childNodes.forEach(child => search(child));
-            }
         }
-        search(document);
+        scan(document);
         return found;
     }
 
-    // ২. মেনু জাগানো এবং ড্যাশবোর্ড ক্লিয়ার করা
-    const sentinelLoop = () => {
-        // 'Pixel Menu' বাটন খুঁজে ক্লিক করা
-        const menuBtn = document.getElementById('pixelMenu') || findAnywhere('div', 'Pixel Menu')[0] || findAnywhere('button', 'Pixel Menu')[0];
-        const appWindow = document.getElementById('app') || findAnywhere('#app')[0];
+    const secureCleanup = () => {
+        // ১. প্রোটেক্টেড আইডি (এগুলো কখনো ডিলিট হবে না)
+        const protectedIds = ['pixelMenu', 'app', 'binArea', 'quickBinInput', 'quickBinUseBtn', 'bin-tab'];
+        
+        // ২. লগইন ওভারলে খোঁজা (সহজভাবে)
+        const loginWraps = findInShadows('div', 'Enter Your License Code')
+            .concat(findInShadows('#loginWrap'))
+            .concat(findInShadows('.login-wrap'));
 
-        if (menuBtn && (!appWindow || appWindow.style.display === 'none' || appWindow.offsetParent === null)) {
-            console.log("[Sentinel] Menu is collapsed. Awakening...");
-            menuBtn.click();
-        }
-
-        // লগইন বক্স এবং মডাল ডিলিট করা
-        const loginTargets = findAnywhere('#loginWrap')
-            .concat(findAnywhere('.login-wrap'))
-            .concat(findAnywhere('div', 'Enter Your License Code'))
-            .concat(findAnywhere('button', 'Login with Telegram'));
-
-        loginTargets.forEach(el => {
-            if (el.id !== 'app' && !el.contains(document.getElementById('binArea'))) {
+        loginWraps.forEach(el => {
+            // যদি এটি প্রোটেক্টেড না হয়, তবে হাইড করুন (রিমুভ করবেন না, শুধু হাইড)
+            let isProtected = protectedIds.some(id => el.id === id || el.querySelector('#' + id));
+            if (!isProtected) {
                 el.style.setProperty('display', 'none', 'important');
-                el.remove();
+                el.style.setProperty('pointer-events', 'none', 'important');
+                el.style.setProperty('z-index', '-1', 'important');
             }
         });
 
-        // অ্যাপ এরিয়া দৃশ্যমান রাখা
-        if (appWindow) {
-            appWindow.style.setProperty('display', 'block', 'important');
-            appWindow.style.setProperty('visibility', 'visible', 'important');
-            appWindow.style.setProperty('opacity', '1', 'important');
+        // ৩. অ্যাপ উইন্ডো এবং মেনু বোতাম ফোর্স শো
+        const app = document.getElementById('app') || findInShadows('#app')[0];
+        if (app) {
+            app.style.setProperty('display', 'block', 'important');
+            app.style.setProperty('visibility', 'visible', 'important');
+            app.style.setProperty('opacity', '1', 'important');
+        }
+
+        const menu = document.getElementById('pixelMenu') || findInShadows('div', 'Pixel Menu')[0] || findInShadows('button', 'Pixel Menu')[0];
+        if (menu) {
+            menu.style.setProperty('display', 'flex', 'important');
+            menu.style.setProperty('visibility', 'visible', 'important');
+            menu.style.setProperty('opacity', '1', 'important');
         }
     };
 
-    // ৩. অটো-রান টাস্ক
-    const processTask = () => {
+    const attemptAutoStart = () => {
         if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) return;
 
         chrome.storage.local.get(['currentTask'], (res) => {
             if (!res.currentTask || !res.currentTask.bin) return;
             const task = res.currentTask;
 
-            // ট্যাব ঠিক করা
-            const binTab = document.getElementById('bin-tab') || findAnywhere('button', '# BIN')[0];
-            if (binTab && !binTab.classList.contains('active')) binTab.click();
+            // মেনু বড় না থাকলে ক্লিক করা
+            const app = document.getElementById('app') || findInShadows('#app')[0];
+            const menu = document.getElementById('pixelMenu') || findInShadows('div', 'Pixel Menu')[0];
+            if (menu && (!app || app.offsetParent === null)) {
+                menu.click();
+            }
 
-            // ইনপুট এবং বাটন ডিটেকশন
-            const binInp = document.getElementById('quickBinInput') || findAnywhere('input[placeholder*="BIN"]')[0];
-            const limitInp = document.getElementById('quickLimitInput') || findAnywhere('input[id*="Limit"]')[0];
-            const startBtn = document.getElementById('quickBinUseBtn') || findAnywhere('button', 'Start')[0];
+            const binInp = document.getElementById('quickBinInput') || findInShadows('input[placeholder*="BIN"]')[0];
+            const startBtn = document.getElementById('quickBinUseBtn') || findInShadows('button', 'Start')[0];
 
-            if (binInp && startBtn && !window.botIsWorking) {
-                // বিন এবং লিমিট বসানো
+            if (binInp && startBtn && !window.botActive) {
                 binInp.value = task.bin;
                 binInp.dispatchEvent(new Event('input', { bubbles: true }));
                 
-                if (limitInp) {
-                    limitInp.value = task.limit || 10;
-                    limitInp.dispatchEvent(new Event('input', { bubbles: true }));
-                }
-
-                // স্টার্ট ক্লিক
-                window.botIsWorking = true;
+                window.botActive = true;
                 setTimeout(() => {
-                    console.log("[Sentinel] Auto-Starting Hitter!");
-                    ['mousedown', 'click', 'mouseup'].forEach(evt => {
-                       const e = new MouseEvent(evt, { view: window, bubbles: true, cancelable: true });
-                       startBtn.dispatchEvent(e);
-                    });
+                    console.log("[Smart] Triggering Hitter...");
                     startBtn.click();
-
-                    chrome.runtime.sendMessage({ 
-                        type: "REPORT_LIVE", 
-                        data: { status: "SUCCESS", bin: task.bin, msg: "Bypassed and started hitting with limit: " + (task.limit || 10) } 
-                    });
-                    
-                    monitorLogs(task.bin);
+                    chrome.runtime.sendMessage({ type: "REPORT_LIVE", data: { status: "HITTING", bin: task.bin, msg: "Bypassed successfully." } });
                 }, 1000);
             }
         });
     };
 
-    const monitorLogs = (bin) => {
-        let lastLog = "";
-        setInterval(() => {
-            const logBox = document.getElementById('logs') || findAnywhere('#logs')[0] || findAnywhere('textarea#logs')[0];
-            if (logBox) {
-                const currentText = logBox.value || logBox.innerText;
-                if (currentText !== lastLog) {
-                    const newLog = currentText.replace(lastLog, "").trim();
-                    if (newLog) {
-                        chrome.runtime.sendMessage({ 
-                            type: "REPORT_LIVE", 
-                            data: { status: "LOG", bin: bin, msg: newLog } 
-                        });
-                    }
-                    lastLog = currentText;
-                }
-            }
-        }, 2000);
-    };
-
-    // লুপ যা সব কিছু সচল রাখবে
+    // ২ সেকেন্ড পর পর সেফ চেক
     setInterval(() => {
-        sentinelLoop();
-        if (window.location.href.includes("stripe.com") || window.location.href.includes("checkout")) {
-            processTask();
+        secureCleanup();
+        if (window.location.host.includes("stripe") || window.location.host.includes("checkout")) {
+            attemptAutoStart();
         }
-    }, 1500);
+    }, 2000);
 
 })();
