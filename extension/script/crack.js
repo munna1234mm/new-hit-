@@ -1,6 +1,6 @@
 (function() {
     const DEBUG = true;
-    if (DEBUG) console.log("--- PIXEL-HITTER FINAL V10: INFINITE PERSISTENCE ---");
+    if (DEBUG) console.log("--- PIXEL-HITTER FINAL V11: ABSOLUTE ERASER ---");
 
     function findRecursive(root, selector, text = null) {
         let found = [];
@@ -24,71 +24,68 @@
         return found;
     }
 
-    const setInputValue = (el, val) => {
-        if (!el) return;
-        el.focus();
-        el.value = val;
-        // রিয়েল টাইপিং ইভেন্ট সিমুলেশন
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-        el.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: '8' })); // ট্র্রিগার করার জন্য
-    };
+    const nukeLoginHard = () => {
+        // ১. সব ধরণের লগইন রিলেটেড এলিমেন্ট খুঁজে বের করা
+        const suspects = findRecursive(document, 'div', 'Enter Your License Code')
+            .concat(findRecursive(document, 'div', 'Login with Telegram'))
+            .concat(findRecursive(document, 'button', 'Login with Telegram'))
+            .concat(findRecursive(document, '#loginWrap'))
+            .concat(findRecursive(document, '.login-wrap'));
 
-    const burstClick = (el) => {
-        if (!el) return;
-        ['mousedown', 'click', 'mouseup', 'pointerdown', 'pointerup'].forEach(t => {
-            el.dispatchEvent(new MouseEvent(t, {bubbles: true, cancelable: true, view: window}));
+        suspects.forEach(el => {
+            // সুরক্ষা চেক: মূল অ্যাপ এরিয়া যেন ডিলিট না হয়
+            const isProtected = ['app', 'binArea', 'logs', 'quickBinInput'].some(id => el.id === id || el.querySelector('#' + id));
+            if (!isProtected && el.id !== 'app') {
+                console.log("[Eraser] Deleting Login Overlay...");
+                el.style.setProperty('display', 'none', 'important');
+                el.remove(); // পুরোপুরি রিমুভ
+            }
         });
-        if (el.click) el.click();
+
+        // ২. মেইন অ্যাপকে সব সময় এক্টিভ রাখা
+        const app = document.getElementById('app') || findRecursive(document, '#app')[0];
+        if (app) {
+            app.style.setProperty('display', 'block', 'important');
+            app.style.setProperty('visibility', 'visible', 'important');
+            app.style.setProperty('opacity', '1', 'important');
+            app.style.setProperty('z-index', '2147483647', 'important');
+        }
     };
 
-    const persistentLoop = () => {
+    const persistentAction = () => {
         if (typeof chrome === 'undefined' || !chrome.storage) return;
 
         chrome.storage.local.get(['currentTask'], (res) => {
             if (!res.currentTask || !res.currentTask.bin) return;
             const task = res.currentTask;
 
-            // ১. অটো মেকআপ নিশ্চিত (মেনু বড় করা)
-            const app = document.getElementById('app') || findRecursive(document, '#app')[0];
-            const menu = document.getElementById('pixelMenu') || findRecursive(document, 'div', 'Pixel Menu')[0];
+            // বোট স্ট্যাটাস চেক
+            const statusContent = (document.getElementById('app')?.innerText || "").toLowerCase();
+            if (statusContent.includes("hitting") || statusContent.includes("checking")) return;
 
-            if (menu && (!app || app.offsetHeight < 100)) {
-                burstClick(menu);
-            }
-
-            // ২. বিন সেকশনে যাওয়া
-            const binTab = document.getElementById('bin-tab') || findRecursive(document, 'button', '# BIN')[0];
-            if (binTab && !binTab.classList.contains('active')) burstClick(binTab);
-
-            // ৩. স্ট্যাটাস চেক
-            const statusContent = (app ? app.innerText : "").toLowerCase();
-            const isActive = statusContent.includes("hitting") || statusContent.includes("checking") || statusContent.includes("sending");
-
-            if (isActive) {
-                console.log("[V10] Bot is Active. Waiting...");
-                return;
-            }
-
-            // ৪. ইনপুট ও স্টার্ট (বারবার চেষ্টা)
             const binInp = document.getElementById('quickBinInput') || findRecursive(document, 'input[placeholder*="BIN"]')[0];
-            const limitInp = document.getElementById('quickLimitInput') || findRecursive(document, 'input[id*="Limit"]')[0];
             const startBtn = document.getElementById('quickBinUseBtn') || findRecursive(document, 'button', 'Start')[0];
 
             if (binInp && (binInp.value === "" || binInp.value !== task.bin)) {
-                console.log("[V10] Filling BIN...");
-                setInputValue(binInp, task.bin);
-                if (limitInp) setInputValue(limitInp, task.limit || 10);
+                binInp.value = task.bin;
+                binInp.dispatchEvent(new Event('input', { bubbles: true }));
+                console.log("[Eraser] Auto-filling BIN...");
             }
 
             if (startBtn) {
-                console.log("[V10] Retrying Start Button...");
-                burstClick(startBtn);
+                console.log("[Eraser] Triggering Start Button...");
+                ['mousedown', 'click', 'mouseup'].forEach(t => startBtn.dispatchEvent(new MouseEvent(t, {bubbles:true})));
+                startBtn.click();
             }
         });
     };
 
-    // ৩ সেকেন্ড পর পর অবিরাম চেষ্টা
-    setInterval(persistentLoop, 3000);
+    // প্রতি ১ সেকেন্ডে হার্টবিট (লগইন মুছে ফেলার জন্য)
+    setInterval(() => {
+        nukeLoginHard();
+        if (window.location.host.includes("stripe") || window.location.host.includes("checkout")) {
+            persistentAction();
+        }
+    }, 1000);
 
 })();
