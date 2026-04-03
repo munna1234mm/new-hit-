@@ -1,7 +1,9 @@
 from flask import Flask, request, jsonify, render_template_string
+from flask_cors import CORS
 import os
 
 app = Flask(__name__)
+CORS(app) # This allows the extension to talk to the server
 
 # In-memory storage for the current task and results
 task_data = {
